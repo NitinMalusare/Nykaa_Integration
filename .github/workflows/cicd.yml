@@ -1,0 +1,81 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    tags:
+      - 'dev-*'
+
+jobs:
+  staging_job:
+    name: Build for Staging
+    if: startsWith(github.ref, 'refs/tags/dev-')
+    runs-on: self-hosted
+    environment: staging
+    steps:
+      - name: Cleanup Workspace
+        run: |
+          sudo rm -rf *
+          sudo rm -rf .[^.] .??*
+          
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Install Java 17, Maven 3.9.9, and GCP SDK
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget curl gnupg unzip python3 python3-distutils
+          
+          # Install Java 17
+          wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | sudo tee /usr/share/keyrings/adoptium.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bookworm main" | sudo tee /etc/apt/sources.list.d/adoptium.list
+          sudo apt-get update -y
+          sudo apt-get install -y temurin-17-jdk
+          
+          # Install Maven 3.9.9
+          MAVEN_VERSION=3.9.9
+          wget https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+          sudo tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz -C /opt
+          if [ ! -L /opt/maven ]; then
+            sudo ln -s /opt/apache-maven-${MAVEN_VERSION} /opt/maven
+          fi
+          
+          echo "export M2_HOME=/opt/maven" >> ~/.bashrc
+          echo "export PATH=\$M2_HOME/bin:\$PATH" >> ~/.bashrc
+          export M2_HOME=/opt/maven
+          export PATH=$M2_HOME/bin:$PATH
+          
+          # Install GCP SDK
+          curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/cloud.google.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+          sudo apt-get update -y
+          sudo apt-get install -y google-cloud-sdk google-cloud-sdk-app-engine-java
+
+      - name: Build and Deploy
+        env:
+          MAVEN_OPTS: "-Dmaven.repo.local=./.m2/repository"
+          APPLICATION_PROPERTIES: ${{ vars.APPLICATION_PROPERTIES_STAGING }}
+          AUTH_CONFIG_STAGING: ${{ vars.AUTH_CONFIG_STAGING }}
+          POM_STAGING: ${{ vars.POM_STAGING }}
+          SSH_KEY_STAGING: ${{ vars.SSH_KEY_PRIVATE }}
+          USER: ${{ vars.TOMCAT_USER }}
+          HOST_STAGING: ${{ vars.INSTANCE_IP_STAGING }}
+          KEY_FILE: ${{ vars.KEY_FILE_STAGING }}
+        run: |
+          echo "$APPLICATION_PROPERTIES" > src/main/resources/application.properties
+          echo "$AUTH_CONFIG_STAGING" > src/main/java/com/esb/exportjobs/config/AuthConfig.java
+          echo "$POM_STAGING" > pom.xml
+
+          cat <<EOF > /tmp/file.json
+          $KEY_FILE
+          EOF
+
+          echo "$KEY_FILE" > src/main/resources/key.json
+          gcloud auth activate-service-account --key-file /tmp/file.json
+          
+          sh -c "mvn clean package"
+          echo "$SSH_KEY_STAGING" > id_rsa
+          chmod 400 id_rsa
+          scp -i id_rsa -o StrictHostKeyChecking=no target/*.war "$USER"@"$HOST_STAGING":/opt/tomcat/9_37/webapps/
+          ssh -i id_rsa -o StrictHostKeyChecking=no "$USER"@"$HOST_STAGING" "sudo service tomcat restart" 

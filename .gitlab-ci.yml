@@ -1,0 +1,60 @@
+image: maven:3.8.6-eclipse-temurin-17
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=./.m2/repository"
+  GCP_PROJECT_ID: "custom-oms-integration-staging"
+  REGION: "us-central1"
+  SERVICE: "gitlab-app"
+
+cache:
+  key: ${CI_ENVIRONMENT_NAME}
+  paths:
+    - ./.m2/repository
+
+before_script:
+  - apt-get update -y
+  - apt-get install -y gnupg curl python3-distutils
+  - echo "deb http://packages.cloud.google.com/apt cloud-sdk-jessie main" | tee /etc/apt/sources.list.d/google-cloud-sdk.list
+  - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+  - apt-get update -y && apt-get install -y google-cloud-sdk google-cloud-sdk-app-engine-java
+
+include:
+  - template: Code-Quality.gitlab-ci.yml
+
+stages:
+  - test
+  - deploy
+
+# after_script:
+#   - rm /tmp/$CI_PIPELINE_ID.json || true
+#   - chmod 777 $CI_PROJECT_DIR/scripts/deleteVersion.sh || true
+#   - $CI_PROJECT_DIR/scripts/deleteVersion.sh staging > $CI_PROJECT_DIR/scripts/delete.out || true
+#   - cat $CI_PROJECT_DIR/scripts/delete.out || true
+
+code_quality:
+  stage: test
+  before_script:
+    - echo "Setting up code quality check..."
+  artifacts:
+    paths: [gl-code-quality-report.json]
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /Feature/'
+
+deploy_staging:
+  stage: deploy
+  environment: Staging
+  only:
+    - /^dev-.*$/
+  script:
+    - cat $KEY_FILE_STAGING > /tmp/$CI_PIPELINE_ID.json
+    - gcloud auth activate-service-account --key-file /tmp/$CI_PIPELINE_ID.json
+
+    - cat $POMXML_STAGING > $CI_PROJECT_DIR/pom.xml
+    - cat $APPLICATION_PROPERTIES_STAGING > $CI_PROJECT_DIR/src/main/resources/application.properties
+
+    - gcloud config set project $PROJECT_ID_STAGING
+
+    - mvn clean package -P staging -DskipTests
+    - mvn endpoints-framework:openApiDocs -P staging
+    - gcloud endpoints services deploy target/openapi-docs/openapi.json
+    - mvn appengine:deploy -P staging -DskipTests
