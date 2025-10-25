@@ -22,4 +22,22 @@ CREATE TABLE IF NOT EXISTS ny_products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_sku_token (sku, token)
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_no VARCHAR(255) NOT NULL UNIQUE,
+    order_status VARCHAR(50) NOT NULL,
+    order_date TIMESTAMP NOT NULL,
+    order_last_update_date TIMESTAMP NOT NULL,
+    on_hold VARCHAR(1) NOT NULL DEFAULT '0',
+    seller_id VARCHAR(255) NOT NULL,
+    seller_type VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_seller_type (seller_type),
+    INDEX idx_seller_id (seller_id),
+    INDEX idx_order_status (order_status),
+    INDEX idx_order_last_update_date (order_last_update_date),
+    INDEX idx_seller_type_seller_id (seller_type, seller_id)
 ); 
