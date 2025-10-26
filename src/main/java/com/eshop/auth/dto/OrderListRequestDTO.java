@@ -22,6 +22,6 @@ public class OrderListRequestDTO {
     @Max(value = 200, message = "Limit cannot exceed 200")
     private Integer limit = 100;
     
-    @Pattern(regexp = "^[A-Z0-9]{1,20}$", message = "Invalid seller ID format")
+    @Pattern(regexp = "^[A-Za-z0-9]{1,20}$", message = "Invalid seller ID format")
     private String sellerId;
 }
