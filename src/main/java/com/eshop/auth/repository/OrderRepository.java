@@ -13,6 +13,11 @@ import java.util.List;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     
     /**
+     * Find orders by order numbers
+     */
+    List<Order> findByOrderNoIn(List<String> orderNos);
+    
+    /**
      * Find orders by seller type
      */
     List<Order> findBySellerType(String sellerType);

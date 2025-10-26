@@ -1,7 +1,6 @@
 package com.eshop.auth.controller;
 
-import com.eshop.auth.dto.OrderListRequestDTO;
-import com.eshop.auth.dto.OrderListResponseDTO;
+import com.eshop.auth.dto.*;
 import com.eshop.auth.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -84,6 +83,60 @@ public class OrderController {
             OrderListResponseDTO errorResponse = new OrderListResponseDTO();
             errorResponse.setResponseCode(500);
             errorResponse.setResponseMessage("An unexpected error occurred: " + e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+    
+    @PostMapping("/orderFetch")
+    @Operation(summary = "Fetch order details for Dropship sellers", 
+               description = "Fetches detailed information about specific orders by order numbers for Dropship sellers")
+    public ResponseEntity<OrderFetchResponseDTO> getOrderDetails(
+            @RequestHeader("apiKey") String apiKey,
+            @Valid @RequestBody OrderFetchRequestDTO requestDTO) {
+        
+        try {
+            logger.info("Received order fetch request for Dropship seller: order numbers {}", requestDTO.getOrderNo());
+            
+            OrderFetchResponseDTO response = orderService.getOrderDetails(requestDTO, "DROPSHIP");
+            
+            logger.info("Completed order fetch request for Dropship seller, returning {} orders", 
+                       response.getOrders() != null ? response.getOrders().size() : 0);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Error processing order fetch request for Dropship seller", e);
+            OrderFetchResponseDTO errorResponse = new OrderFetchResponseDTO();
+            errorResponse.setResponseCode(500);
+            errorResponse.setResponseMessage("An unexpected error occurred: " + e.getMessage());
+            errorResponse.setOrders(null);
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+    
+    @PostMapping("/orderFetchJIT")
+    @Operation(summary = "Fetch order details for JIT sellers", 
+               description = "Fetches detailed information about specific orders by order numbers for JIT sellers")
+    public ResponseEntity<OrderFetchResponseDTO> getOrderDetailsJIT(
+            @RequestHeader("apiKey") String apiKey,
+            @Valid @RequestBody OrderFetchRequestDTO requestDTO) {
+        
+        try {
+            logger.info("Received order fetch request for JIT seller: order numbers {}", requestDTO.getOrderNo());
+            
+            OrderFetchResponseDTO response = orderService.getOrderDetails(requestDTO, "JIT");
+            
+            logger.info("Completed order fetch request for JIT seller, returning {} orders", 
+                       response.getOrders() != null ? response.getOrders().size() : 0);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Error processing order fetch request for JIT seller", e);
+            OrderFetchResponseDTO errorResponse = new OrderFetchResponseDTO();
+            errorResponse.setResponseCode(500);
+            errorResponse.setResponseMessage("An unexpected error occurred: " + e.getMessage());
+            errorResponse.setOrders(null);
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
