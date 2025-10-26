@@ -1,6 +1,6 @@
--- Insert sample orders for testing
+-- Insert sample orders for testing (using INSERT IGNORE to prevent duplicate key violations)
 
-INSERT INTO orders (order_no, order_status, order_date, order_last_update_date, on_hold, seller_id, seller_type, created_at, updated_at) VALUES
+INSERT IGNORE INTO orders (order_no, order_status, order_date, order_last_update_date, on_hold, seller_id, seller_type, created_at, updated_at) VALUES
 ('59878966-1', '15', '2019-06-14 16:53:44', '2020-06-03 17:47:07', '0', 'TEST4', 'DROPSHIP', NOW(), NOW()),
 ('53210664-1', '5', '2019-06-14 16:53:44', '2020-06-04 16:16:50', '0', 'TEST4', 'DROPSHIP', NOW(), NOW()),
 ('34033344-1', '8', '2019-06-14 16:53:44', '2020-06-09 13:29:29', '0', 'TEST4', 'DROPSHIP', NOW(), NOW()),
@@ -11,4 +11,12 @@ INSERT INTO orders (order_no, order_status, order_date, order_last_update_date, 
 ('99887766-1', '25', '2020-11-05 12:10:00', '2020-11-05 13:20:00', '1', 'mwhc2', 'DROPSHIP', NOW(), NOW()),
 ('11111111-1', '15', '2020-12-01 10:00:00', '2020-12-01 11:00:00', '0', 'TEST4', 'DROPSHIP', NOW(), NOW()),
 ('22222222-1', '10', '2020-12-15 14:00:00', '2020-12-15 15:00:00', '0', 'mwhc2', 'DROPSHIP', NOW(), NOW());
+
+-- Insert sample JIT orders for testing
+INSERT IGNORE INTO orders (order_no, order_status, order_date, order_last_update_date, on_hold, seller_id, seller_type, created_at, updated_at) VALUES
+('JIT001-1', '5', '2020-06-10 10:00:00', '2020-06-10 11:00:00', '0', 'JITSELLER1', 'JIT', NOW(), NOW()),
+('JIT002-1', '8', '2020-06-15 14:30:00', '2020-06-15 15:30:00', '0', 'JITSELLER1', 'JIT', NOW(), NOW()),
+('JIT003-1', '10', '2020-07-01 09:00:00', '2020-07-01 10:00:00', '0', 'JITSELLER1', 'JIT', NOW(), NOW()),
+('JIT004-1', '15', '2020-07-10 16:00:00', '2020-07-10 17:00:00', '0', 'JITSELLER2', 'JIT', NOW(), NOW()),
+('JIT005-1', '18', '2020-08-05 12:00:00', '2020-08-05 13:00:00', '0', 'JITSELLER2', 'JIT', NOW(), NOW());
 
