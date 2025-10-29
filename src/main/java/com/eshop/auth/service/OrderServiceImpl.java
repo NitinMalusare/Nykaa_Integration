@@ -106,12 +106,12 @@ public class OrderServiceImpl implements OrderService {
      */
     private OrderDTO convertToDTO(Order order) {
         OrderDTO dto = new OrderDTO();
-        dto.setOrderNo(order.getOrderNo());
-        dto.setOrderStatus(order.getOrderStatus());
-        dto.setOrderDate(formatDateForResponse(order.getOrderDate()));
-        dto.setOrderLastUpdateDate(formatDateForResponse(order.getOrderLastUpdateDate()));
-        dto.setOnHold(order.getOnHold());
-        dto.setSellerId(order.getSellerId());
+        dto.setOrderNo(safe(order.getOrderNo()));
+        dto.setOrderStatus(safe(order.getOrderStatus()));
+        dto.setOrderDate(formatDateForResponseSafe(order.getOrderDate()));
+        dto.setOrderLastUpdateDate(formatDateForResponseSafe(order.getOrderLastUpdateDate()));
+        dto.setOnHold(safe(order.getOnHold()));
+        dto.setSellerId(safe(order.getSellerId()));
         return dto;
     }
     
@@ -121,6 +121,21 @@ public class OrderServiceImpl implements OrderService {
     private String formatDateForResponse(LocalDateTime dateTime) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
         return dateTime.format(formatter);
+    }
+
+    private String formatDateForResponseSafe(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return "";
+        }
+        return formatDateForResponse(dateTime);
+    }
+
+    private String safe(String value) {
+        return value != null ? value : "";
+    }
+
+    private String safeZero(String value) {
+        return value != null ? value : "0";
     }
     
     /**
@@ -200,48 +215,48 @@ public class OrderServiceImpl implements OrderService {
     private OrderDetailDTO convertToOrderDetailDTO(Order order, List<OrderItem> allOrderItems) {
         OrderDetailDTO dto = new OrderDetailDTO();
         
-        dto.setOrderNo(order.getOrderNo());
-        dto.setOrderStatus(order.getOrderStatus());
-        dto.setOrderDate(formatDateForResponse(order.getOrderDate()));
-        dto.setSla(order.getSla());
-        dto.setCustomerName(order.getCustomerName());
-        dto.setPaymentMethod(order.getPaymentMethod());
-        dto.setOrderAmount(order.getOrderAmount());
-        dto.setOrderCurrency(order.getOrderCurrency());
-        dto.setOrderTaxAmount(order.getOrderTaxAmount());
-        dto.setOnHold(order.getOnHold());
-        dto.setShippingCharge(order.getShippingCharge());
-        dto.setDiscountAmount(order.getDiscountAmount());
-        dto.setDiscCouponCode(order.getDiscCouponCode());
-        dto.setStoreCredit(order.getStoreCredit());
-        dto.setGvAmount(order.getGvAmount());
-        dto.setCodCharge(order.getCodCharge());
-        dto.setAddress1(order.getAddress1());
-        dto.setAddress2(order.getAddress2());
-        dto.setAddress3(order.getAddress3());
-        dto.setPhone(order.getPhone());
-        dto.setEmail(order.getEmail());
-        dto.setCountryCode(order.getCountryCode());
-        dto.setState(order.getState());
-        dto.setCity(order.getCity());
-        dto.setPinCode(order.getPinCode());
-        dto.setBillToName(order.getBillToName());
-        dto.setBillAddress1(order.getBillAddress1());
-        dto.setBillAddress2(order.getBillAddress2());
-        dto.setBillAddress3(order.getBillAddress3());
-        dto.setBillPhone(order.getBillPhone());
-        dto.setBillEmail(order.getBillEmail());
-        dto.setBillCountryCode(order.getBillCountryCode());
-        dto.setBillState(order.getBillState());
-        dto.setBillCity(order.getBillCity());
-        dto.setBillZipCode(order.getBillZipCode());
-        dto.setCancelRemark(order.getCancelRemark());
-        dto.setReasonForCancellation(order.getReasonForCancellation());
-        dto.setPriority(order.getPriority());
-        dto.setOrderLastUpdateDate(formatDateForResponse(order.getOrderLastUpdateDate()));
-        dto.setMasterOrderNo(order.getMasterOrderNo());
-        dto.setGstin(order.getGstin());
-        dto.setSellerId(order.getSellerId());
+        dto.setOrderNo(safe(order.getOrderNo()));
+        dto.setOrderStatus(safe(order.getOrderStatus()));
+        dto.setOrderDate(formatDateForResponseSafe(order.getOrderDate()));
+        dto.setSla(safe(order.getSla()));
+        dto.setCustomerName(safe(order.getCustomerName()));
+        dto.setPaymentMethod(safe(order.getPaymentMethod()));
+        dto.setOrderAmount(safeZero(order.getOrderAmount()));
+        dto.setOrderCurrency(safe(order.getOrderCurrency()));
+        dto.setOrderTaxAmount(safeZero(order.getOrderTaxAmount()));
+        dto.setOnHold(safe(order.getOnHold()));
+        dto.setShippingCharge(safeZero(order.getShippingCharge()));
+        dto.setDiscountAmount(safeZero(order.getDiscountAmount()));
+        dto.setDiscCouponCode(safe(order.getDiscCouponCode()));
+        dto.setStoreCredit(safeZero(order.getStoreCredit()));
+        dto.setGvAmount(safeZero(order.getGvAmount()));
+        dto.setCodCharge(safeZero(order.getCodCharge()));
+        dto.setAddress1(safe(order.getAddress1()));
+        dto.setAddress2(safe(order.getAddress2()));
+        dto.setAddress3(safe(order.getAddress3()));
+        dto.setPhone(safe(order.getPhone()));
+        dto.setEmail(safe(order.getEmail()));
+        dto.setCountryCode(safe(order.getCountryCode()));
+        dto.setState(safe(order.getState()));
+        dto.setCity(safe(order.getCity()));
+        dto.setPinCode(safe(order.getPinCode()));
+        dto.setBillToName(safe(order.getBillToName()));
+        dto.setBillAddress1(safe(order.getBillAddress1()));
+        dto.setBillAddress2(safe(order.getBillAddress2()));
+        dto.setBillAddress3(safe(order.getBillAddress3()));
+        dto.setBillPhone(safe(order.getBillPhone()));
+        dto.setBillEmail(safe(order.getBillEmail()));
+        dto.setBillCountryCode(safe(order.getBillCountryCode()));
+        dto.setBillState(safe(order.getBillState()));
+        dto.setBillCity(safe(order.getBillCity()));
+        dto.setBillZipCode(safe(order.getBillZipCode()));
+        dto.setCancelRemark(safe(order.getCancelRemark()));
+        dto.setReasonForCancellation(safe(order.getReasonForCancellation()));
+        dto.setPriority(safe(order.getPriority()));
+        dto.setOrderLastUpdateDate(formatDateForResponseSafe(order.getOrderLastUpdateDate()));
+        dto.setMasterOrderNo(safe(order.getMasterOrderNo()));
+        dto.setGstin(safe(order.getGstin()));
+        dto.setSellerId(safe(order.getSellerId()));
         
         // Add order items for this order
         List<OrderItem> orderItems = allOrderItems.stream()
@@ -262,34 +277,34 @@ public class OrderServiceImpl implements OrderService {
      */
     private OrderItemDTO convertToOrderItemDTO(OrderItem item) {
         OrderItemDTO dto = new OrderItemDTO();
-        dto.setLineNo(item.getLineNo());
-        dto.setDeliveryMode(item.getDeliveryMode());
-        dto.setSkuCode(item.getSkuCode());
-        dto.setSkuName(item.getSkuName());
-        dto.setOrderQty(item.getOrderQty());
-        dto.setRejectedQty(item.getRejectedQty());
-        dto.setCancelledQty(item.getCancelledQty());
-        dto.setShippedQty(item.getShippedQty());
-        dto.setReturnedQty(item.getReturnedQty());
-        dto.setDeliveredQty(item.getDeliveredQty());
-        dto.setLineAmount(item.getLineAmount());
-        dto.setLineTaxAmount(item.getLineTaxAmount());
-        dto.setUnitPrice(item.getUnitPrice());
-        dto.setMrp(item.getMrp());
-        dto.setDiscountAmount(item.getDiscountAmount());
-        dto.setShippingCharge(item.getShippingCharge());
-        dto.setCodCharge(item.getCodCharge());
-        dto.setInvoiceNo(item.getInvoiceNo());
-        dto.setTransCode(item.getTransCode());
-        dto.setTransName(item.getTransName());
-        dto.setAwbNo(item.getAwbNo());
-        dto.setImeiNos(item.getImeiNos());
-        dto.setConfirmDate(item.getConfirmDate() != null ? formatDateForResponse(item.getConfirmDate()) : null);
-        dto.setGvAmount(item.getGvAmount());
-        dto.setStoreCredit(item.getStoreCredit());
-        dto.setLineStatus(item.getLineStatus());
-        dto.setCst(item.getCst());
-        dto.setVat(item.getVat());
+        dto.setLineNo(safe(item.getLineNo()));
+        dto.setDeliveryMode(safe(item.getDeliveryMode()));
+        dto.setSkuCode(safe(item.getSkuCode()));
+        dto.setSkuName(safe(item.getSkuName()));
+        dto.setOrderQty(safeZero(item.getOrderQty()));
+        dto.setRejectedQty(safeZero(item.getRejectedQty()));
+        dto.setCancelledQty(safeZero(item.getCancelledQty()));
+        dto.setShippedQty(safeZero(item.getShippedQty()));
+        dto.setReturnedQty(safeZero(item.getReturnedQty()));
+        dto.setDeliveredQty(safeZero(item.getDeliveredQty()));
+        dto.setLineAmount(safeZero(item.getLineAmount()));
+        dto.setLineTaxAmount(safeZero(item.getLineTaxAmount()));
+        dto.setUnitPrice(safeZero(item.getUnitPrice()));
+        dto.setMrp(safeZero(item.getMrp()));
+        dto.setDiscountAmount(safeZero(item.getDiscountAmount()));
+        dto.setShippingCharge(safeZero(item.getShippingCharge()));
+        dto.setCodCharge(safeZero(item.getCodCharge()));
+        dto.setInvoiceNo(safe(item.getInvoiceNo()));
+        dto.setTransCode(safe(item.getTransCode()));
+        dto.setTransName(safe(item.getTransName()));
+        dto.setAwbNo(safe(item.getAwbNo()));
+        dto.setImeiNos(safe(item.getImeiNos()));
+        dto.setConfirmDate(formatDateForResponseSafe(item.getConfirmDate()));
+        dto.setGvAmount(safeZero(item.getGvAmount()));
+        dto.setStoreCredit(safeZero(item.getStoreCredit()));
+        dto.setLineStatus(safe(item.getLineStatus()));
+        dto.setCst(safe(item.getCst()));
+        dto.setVat(safe(item.getVat()));
         return dto;
     }
 }
