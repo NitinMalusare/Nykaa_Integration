@@ -3,7 +3,9 @@ package com.eshop.auth.util;
 import com.eshop.auth.dto.InvoiceItemDTO;
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.lowagie.text.*;
-import com.lowagie.text.pdf.*;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,11 +84,11 @@ public class InvoicePdfBuilder {
 
         String invoiceDetails =
                 "Invoice No: " + invoiceNo + "\n" +
-                "Invoice Date: " + request.getOrderDate() + "\n" +
-                "AWB No: " + request.getAwbNo() + "\n" +
-                "Order No: " + request.getOrderNo() + "\n" +
-                "Payment Mode: " + request.getPaymentMode() + "\n" +
-                "Place of Supply: " + request.getPlaceOfSupply();
+                        "Invoice Date: " + request.getOrderDate() + "\n" +
+                        "AWB No: " + request.getAwbNo() + "\n" +
+                        "Order No: " + request.getOrderNo() + "\n" +
+                        "Payment Mode: " + request.getPaymentMode() + "\n" +
+                        "Place of Supply: " + request.getPlaceOfSupply();
 
         right.addElement(new Paragraph(invoiceDetails, normalFont));
         header.addCell(right);
