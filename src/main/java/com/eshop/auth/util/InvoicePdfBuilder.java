@@ -2,6 +2,8 @@ package com.eshop.auth.util;
 
 import com.eshop.auth.dto.InvoiceItemDTO;
 import com.eshop.auth.dto.InvoiceRequestDTO;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.layout.Document;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
@@ -13,6 +15,9 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.text.DecimalFormat;
 import java.util.List;
+
+import static com.itextpdf.kernel.pdf.PdfName.Font;
+import static com.sun.org.apache.xalan.internal.xsltc.compiler.util.Type.Element;
 
 /**
  * Utility class for generating Nykaa-style invoice PDFs using OpenPDF
@@ -30,7 +35,7 @@ public class InvoicePdfBuilder {
         logger.info("Generating PDF invoice: {}", invoiceNo);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Document document = new Document(PageSize.A4, 36, 36, 54, 36); // Added margins
+        com.lowagie.text.Document document = new com.lowagie.text.Document(com.lowagie.text.PageSize.A4, 36f, 36f, 54f, 36f); // Added margins
 
         try {
             PdfWriter.getInstance(document, baos);
