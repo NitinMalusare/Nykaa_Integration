@@ -1,6 +1,9 @@
 package com.eshop.auth.controller;
 
 import com.eshop.auth.dto.*;
+import com.eshop.auth.dto.InvoiceRequestDTO;
+import com.eshop.auth.dto.InvoiceResponseDTO;
+import com.eshop.auth.service.InvoiceService;
 import com.eshop.auth.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +23,9 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private InvoiceService invoiceService;
 
     @PostMapping("/orderList")
     @Operation(summary = "Fetch order list for Dropship sellers", 
@@ -52,6 +58,22 @@ public class OrderController {
             errorResponse.setResponseMessage("An unexpected error occurred: " + e.getMessage());
             return ResponseEntity.status(500).body(errorResponse);
         }
+    }
+
+    @PostMapping("/order/createAndLabel")
+    @Operation(summary = "Create order and generate invoice label",
+            description = "Creates a minimal order record from invoice request and returns the generated PDF label")
+    public ResponseEntity<InvoiceResponseDTO> createOrderAndGenerateLabel(
+            @RequestHeader("apiKey") String apiKey,
+            @Valid @RequestBody InvoiceRequestDTO requestDTO) {
+        logger.info("Create+Label request received for buyer: {}", requestDTO.getBuyerName());
+        // Persist order
+        String orderNo = orderService.createOrderFromInvoiceRequest(requestDTO);
+        // Ensure the same orderNo flows into invoice
+        requestDTO.setOrderNo(orderNo);
+        // Generate invoice PDF
+        InvoiceResponseDTO invoice = invoiceService.generateInvoice(requestDTO);
+        return ResponseEntity.ok(invoice);
     }
 
     @PostMapping("/orderListJIT")

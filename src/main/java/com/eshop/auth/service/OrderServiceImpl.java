@@ -28,6 +28,40 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemRepository orderItemRepository;
 
     @Override
+    public String createOrderFromInvoiceRequest(com.eshop.auth.dto.InvoiceRequestDTO requestDTO) {
+        logger.info("Creating minimal order for invoice flow: buyer={} orderNo={}", requestDTO.getBuyerName(), requestDTO.getOrderNo());
+
+        // If orderNo provided, reuse; otherwise generate timestamp-based id
+        String orderNo = requestDTO.getOrderNo() != null && !requestDTO.getOrderNo().isEmpty()
+                ? requestDTO.getOrderNo()
+                : generateOrderNo();
+
+        Order order = new Order();
+        order.setOrderNo(orderNo);
+        order.setOrderStatus("CREATED");
+        order.setOrderDate(LocalDateTime.now());
+        order.setOrderLastUpdateDate(LocalDateTime.now());
+        order.setOnHold("N");
+        order.setSellerId("NYKAA");
+        order.setSellerType("DROPSHIP");
+        order.setCustomerName(requestDTO.getBuyerName());
+        order.setPaymentMethod(requestDTO.getPaymentMode());
+        order.setAddress1(requestDTO.getBuyerAddress());
+        order.setBillToName(requestDTO.getBuyerName());
+        order.setBillAddress1(requestDTO.getBuyerAddress());
+        order.setGstin(requestDTO.getSellerGstin());
+        order.setState(requestDTO.getPlaceOfSupply());
+
+        orderRepository.save(order);
+        return orderNo;
+    }
+
+    private String generateOrderNo() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        return "NYK-" + LocalDateTime.now().format(formatter);
+    }
+
+    @Override
     public OrderListResponseDTO getOrderList(OrderListRequestDTO requestDTO, String sellerType) {
         logger.info("Processing order list request for seller type: {}, request: {}", sellerType, requestDTO);
         
