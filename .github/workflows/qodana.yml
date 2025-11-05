@@ -1,0 +1,28 @@
+name: Qodana (Community)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  qodana:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Qodana (Community)
+        uses: JetBrains/qodana-action@v2025.1
+        with:
+          linter: jetbrains/qodana-jvm-community:2025.1
+          # Remove baseline to avoid Cloud token; re-add if you manage a baseline file
+          args: ""
+          results-dir: ${{ runner.temp }}/qodana/results
+          cache-dir: ${{ runner.temp }}/qodana/caches
+          use-caches: true
+          upload-result: false
+          pr-mode: true
+          post-pr-comment: true
+
