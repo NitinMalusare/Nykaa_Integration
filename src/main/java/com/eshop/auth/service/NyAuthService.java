@@ -1,7 +1,6 @@
 package com.eshop.auth.service;
 
 import com.eshop.auth.cache.TokenCacheService;
-import com.eshop.auth.dto.NyAuthRequest;
 import com.eshop.auth.dto.NyCustomAuthResponse;
 import com.eshop.auth.entity.NyEshopUser;
 import com.eshop.auth.repository.NyEshopUserRepository;
