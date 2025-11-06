@@ -59,6 +59,11 @@ public class NyProductController {
             @RequestBody(required = false) NyProductRequestDto requestDto,
             @RequestHeader("apiKey") String token) {
 
+        // Trim token to handle any whitespace issues
+        if (token != null) {
+            token = token.trim();
+        }
+
         // Handle empty request body - use default values
         if (requestDto == null) {
             requestDto = NyProductRequestDto.builder()
@@ -75,8 +80,8 @@ public class NyProductController {
             requestDto.setLimit(100);
         }
 
-        log.info("Product fetch request - page: {}, limit: {}, updatedDate: {}, skuCodes: {}",
-                requestDto.getPageNumber(), requestDto.getLimit(), 
+        log.info("Product fetch request - token: '{}', page: {}, limit: {}, updatedDate: {}, skuCodes: {}",
+                token, requestDto.getPageNumber(), requestDto.getLimit(), 
                 requestDto.getUpdatedDate(), requestDto.getSkuCode());
 
         // Validate date format if provided
@@ -86,6 +91,8 @@ public class NyProductController {
         }
 
         NyProductResponseDto response = nyProductService.fetchProducts(requestDto, token);
+        log.info("Product fetch response - token: '{}', productCount: {}", 
+                token, response.getProductList() != null ? response.getProductList().size() : 0);
         return ResponseEntity.ok(response);
     }
 

@@ -32,6 +32,11 @@ public class NyProductServiceImpl implements NyProductService {
     public NyProductResponseDto createProducts(NyProductCreateRequestDto requestDto, String token) {
         List<NyProductDto> createdProducts = new ArrayList<>();
 
+        // Trim token to handle any whitespace issues
+        if (token != null) {
+            token = token.trim();
+        }
+
         for (NyProductDto productDto : requestDto.getProducts()) {
             NyProduct product = convertToEntity(productDto);
             product.setToken(token);
@@ -55,14 +60,24 @@ public class NyProductServiceImpl implements NyProductService {
     @Override
     public NyProductResponseDto fetchProducts(NyProductRequestDto requestDto, String token) {
         List<NyProductDto> allProducts = new ArrayList<>();
+        
+        // Trim token to handle any whitespace issues
+        if (token != null) {
+            token = token.trim();
+        }
+        
         int pageNumber = requestDto.getPageNumber();
         int limit = requestDto.getLimit();
 
-    logger.info("Fetch request received - token='{}' updatedDate='{}' skuCodes='{}' page={} limit={}",
-        token, requestDto.getUpdatedDate(), requestDto.getSkuCode(), pageNumber, limit);
+        logger.info("Fetch request received - token='{}' updatedDate='{}' skuCodes='{}' page={} limit={}",
+                token, requestDto.getUpdatedDate(), requestDto.getSkuCode(), pageNumber, limit);
 
-    long totalBefore = nyProductRepository.countByToken(token);
-    logger.info("Before fetch: total products for token='{}' -> {}", token, totalBefore);
+        long totalBefore = nyProductRepository.countByToken(token);
+        logger.info("Before fetch: total products for token='{}' -> {}", token, totalBefore);
+        
+        if (totalBefore == 0) {
+            logger.warn("No products found for token='{}'. Please verify products were created with this token.", token);
+        }
 
         while (true) {
             PageRequest pageRequest = PageRequest.of(pageNumber - 1, limit);
