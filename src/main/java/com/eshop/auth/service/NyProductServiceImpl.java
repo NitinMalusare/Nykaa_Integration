@@ -11,6 +11,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +21,8 @@ import java.util.List;
 
 @Service
 public class NyProductServiceImpl implements NyProductService {
+
+    private static final Logger logger = LoggerFactory.getLogger(NyProductServiceImpl.class);
 
     @Autowired
     private NyProductRepository nyProductRepository;
@@ -32,6 +36,7 @@ public class NyProductServiceImpl implements NyProductService {
             NyProduct product = convertToEntity(productDto);
             product.setToken(token);
             NyProduct savedProduct = nyProductRepository.save(product);
+            logger.info("Created product with sku='{}' token='{}' id={}", savedProduct.getSku(), token, savedProduct.getId());
             createdProducts.add(convertToDto(savedProduct));
         }
 
@@ -41,6 +46,9 @@ public class NyProductServiceImpl implements NyProductService {
         response.setProductList(createdProducts);
         response.setToken(token);
 
+        long totalForToken = nyProductRepository.countByToken(token);
+        logger.info("After create: total products for token='{}' -> {}", token, totalForToken);
+
         return response;
     }
 
@@ -49,6 +57,12 @@ public class NyProductServiceImpl implements NyProductService {
         List<NyProductDto> allProducts = new ArrayList<>();
         int pageNumber = requestDto.getPageNumber();
         int limit = requestDto.getLimit();
+
+    logger.info("Fetch request received - token='{}' updatedDate='{}' skuCodes='{}' page={} limit={}",
+        token, requestDto.getUpdatedDate(), requestDto.getSkuCode(), pageNumber, limit);
+
+    long totalBefore = nyProductRepository.countByToken(token);
+    logger.info("Before fetch: total products for token='{}' -> {}", token, totalBefore);
 
         while (true) {
             PageRequest pageRequest = PageRequest.of(pageNumber - 1, limit);

@@ -5,11 +5,8 @@ import com.eshop.auth.dto.NyProductRequestDto;
 import com.eshop.auth.dto.NyProductResponseDto;
 import com.eshop.auth.service.NyProductService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -19,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 @Slf4j
 @RestController
@@ -30,8 +26,6 @@ import java.util.List;
 public class NyProductController {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-    private static final int DEFAULT_PAGE_SIZE = 100;
-    private static final int MAX_PAGE_SIZE = 1000;
 
     private final NyProductService nyProductService;
 
@@ -59,40 +53,37 @@ public class NyProductController {
         }
     }
 
-    @GetMapping("/productFetch")
+    @PostMapping("/productFetch")
     @Operation(summary = "Fetch products", description = "Retrieves products with optional filtering and pagination")
     public ResponseEntity<NyProductResponseDto> fetchProducts(
-            @Parameter(description = "Filter by update date (format: dd/MM/yyyy HH:mm:ss)")
-            @RequestParam(required = false) String updatedDate,
-
-            @Parameter(description = "Filter by SKU codes")
-            @RequestParam(required = false) List<String> skuCode,
-
-            @Parameter(description = "Page number (starts from 1)")
-            @RequestParam(defaultValue = "1")
-            @Min(1) Integer pageNumber,
-
-            @Parameter(description = "Number of items per page")
-            @RequestParam(defaultValue = "100")
-            @Min(1) @Max(1000) Integer limit,
-
+            @RequestBody(required = false) NyProductRequestDto requestDto,
             @RequestHeader("apiKey") String token) {
 
-        log.info("Product fetch request - page: {}, limit: {}, updatedDate: {}",
-                pageNumber, limit, updatedDate);
+        // Handle empty request body - use default values
+        if (requestDto == null) {
+            requestDto = NyProductRequestDto.builder()
+                    .pageNumber(1)
+                    .limit(100)
+                    .build();
+        }
+
+        // Set defaults if not provided
+        if (requestDto.getPageNumber() == null) {
+            requestDto.setPageNumber(1);
+        }
+        if (requestDto.getLimit() == null) {
+            requestDto.setLimit(100);
+        }
+
+        log.info("Product fetch request - page: {}, limit: {}, updatedDate: {}, skuCodes: {}",
+                requestDto.getPageNumber(), requestDto.getLimit(), 
+                requestDto.getUpdatedDate(), requestDto.getSkuCode());
 
         // Validate date format if provided
-        if (!isValidDateFormat(updatedDate)) {
+        if (requestDto.getUpdatedDate() != null && !isValidDateFormat(requestDto.getUpdatedDate())) {
             return ResponseEntity.badRequest().body(
                     createErrorResponse(400, "Invalid date format. Expected format: dd/MM/yyyy HH:mm:ss"));
         }
-
-        NyProductRequestDto requestDto = NyProductRequestDto.builder()
-                .updatedDate(updatedDate)
-                .skuCode(skuCode)
-                .pageNumber(pageNumber)
-                .limit(limit)
-                .build();
 
         NyProductResponseDto response = nyProductService.fetchProducts(requestDto, token);
         return ResponseEntity.ok(response);
