@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class NyProductServiceImpl implements NyProductService {
@@ -38,10 +39,31 @@ public class NyProductServiceImpl implements NyProductService {
         }
 
         for (NyProductDto productDto : requestDto.getProducts()) {
-            NyProduct product = convertToEntity(productDto);
-            product.setToken(token);
+            // Check if product already exists with same SKU and token
+            Optional<NyProduct> existingProductOpt = nyProductRepository.findBySkuAndToken(productDto.getSku(), token);
+            
+            NyProduct product;
+            boolean isUpdate = false;
+            
+            if (existingProductOpt.isPresent()) {
+                // Product exists, update it
+                product = existingProductOpt.get();
+                isUpdate = true;
+                logger.info("Product with sku='{}' and token='{}' already exists. Updating existing product (id={})", 
+                        productDto.getSku(), token, product.getId());
+                
+                // Update all fields from DTO
+                updateProductFromDto(product, productDto);
+            } else {
+                // Product doesn't exist, create new one
+                product = convertToEntity(productDto);
+                product.setToken(token);
+                logger.info("Creating new product with sku='{}' and token='{}'", productDto.getSku(), token);
+            }
+            
             NyProduct savedProduct = nyProductRepository.save(product);
-            logger.info("Created product with sku='{}' token='{}' id={}", savedProduct.getSku(), token, savedProduct.getId());
+            logger.info("{} product with sku='{}' token='{}' id={}", 
+                    isUpdate ? "Updated" : "Created", savedProduct.getSku(), token, savedProduct.getId());
             createdProducts.add(convertToDto(savedProduct));
         }
 
@@ -52,7 +74,7 @@ public class NyProductServiceImpl implements NyProductService {
         response.setToken(token);
 
         long totalForToken = nyProductRepository.countByToken(token);
-        logger.info("After create: total products for token='{}' -> {}", token, totalForToken);
+        logger.info("After create/update: total products for token='{}' -> {}", token, totalForToken);
 
         return response;
     }
@@ -175,5 +197,35 @@ public class NyProductServiceImpl implements NyProductService {
         product.setSerialTracking(dto.getSerialTracking());
         product.setSellerId(dto.getSellerId());
         return product;
+    }
+
+    /**
+     * Updates an existing product entity with values from the DTO.
+     * Preserves the ID and token of the existing product.
+     */
+    private void updateProductFromDto(NyProduct product, NyProductDto dto) {
+        // Don't update SKU and token - they are the unique identifiers
+        product.setVendorSkuCode(dto.getVendorSkuCode());
+        product.setMfgSkuCode(dto.getMfgSkuCode());
+        product.setSkuName(dto.getSkuName());
+        product.setMrp(dto.getMrp());
+        product.setSalePrice(dto.getSalePrice());
+        product.setBaseCost(dto.getBaseCost());
+        product.setStatus(dto.getStatus());
+        // Update lastUpdateDate if provided, otherwise use current timestamp
+        if (dto.getLastUpdateDate() != null && !dto.getLastUpdateDate().isEmpty()) {
+            product.setLastUpdateDate(dto.getLastUpdateDate());
+        } else {
+            product.setLastUpdateDate(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
+        }
+        product.setBrand(dto.getBrand());
+        product.setColor(dto.getColor());
+        product.setSize(dto.getSize());
+        product.setWeight(dto.getWeight());
+        product.setLength(dto.getLength());
+        product.setWidth(dto.getWidth());
+        product.setHeight(dto.getHeight());
+        product.setSerialTracking(dto.getSerialTracking());
+        product.setSellerId(dto.getSellerId());
     }
 }
