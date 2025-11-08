@@ -75,6 +75,23 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
     }
     
+    @Override
+    public InvoiceService.InvoicePdfResult generateInvoicePdf(InvoiceRequestDTO request) {
+        logger.info("Generating invoice PDF for order: {}", request.getOrderNo());
+
+        try {
+            String invoiceNo = generateInvoiceNumber();
+            byte[] pdfBytes = buildNykaaInvoicePdf(request, invoiceNo);
+            String filePath = savePdfToFile(pdfBytes, invoiceNo);
+            
+            return new InvoiceService.InvoicePdfResult(pdfBytes, invoiceNo, filePath);
+
+        } catch (Exception e) {
+            logger.error("Error generating invoice PDF for order: " + request.getOrderNo(), e);
+            throw new RuntimeException("Failed to generate invoice PDF: " + e.getMessage(), e);
+        }
+    }
+    
     /**
      * Generate unique invoice number
      * Format: INV-NYKA-YYYYMMDDHHMMSS

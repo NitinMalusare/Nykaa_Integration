@@ -31,18 +31,49 @@ public class InvoiceController {
     private final OrderService orderService;
     
     /**
-     * Generate invoice PDF
+     * Generate invoice PDF and return as file download
+     * 
+     * @param requestDTO Invoice request with order items and details
+     * @return PDF file as binary stream
+     */
+    @PostMapping("/generateInvoice")
+    @Operation(summary = "Generate invoice PDF", 
+               description = "Generates a Nykaa-style retail/tax invoice PDF dynamically based on order items and returns the PDF file directly")
+    public ResponseEntity<byte[]> generateInvoice(
+            @Valid @RequestBody InvoiceRequestDTO requestDTO) {
+        
+        log.info("Received invoice generation request for order: {}", requestDTO.getOrderNo());
+        
+        try {
+            InvoiceService.InvoicePdfResult result = invoiceService.generateInvoicePdf(requestDTO);
+            log.info("Invoice generated successfully: {}", result.getInvoiceNo());
+            
+            // Return PDF file with appropriate headers
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/pdf")
+                    .header("Content-Disposition", "attachment; filename=" + result.getInvoiceNo() + ".pdf")
+                    .header("Content-Length", String.valueOf(result.getPdfBytes().length))
+                    .body(result.getPdfBytes());
+            
+        } catch (Exception e) {
+            log.error("Error generating invoice for order: " + requestDTO.getOrderNo(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Generate invoice PDF and return as JSON response with Base64
      * 
      * @param requestDTO Invoice request with order items and details
      * @return Invoice response with PDF Base64 and file path
      */
-    @PostMapping("/generateInvoice")
-    @Operation(summary = "Generate invoice PDF", 
-               description = "Generates a Nykaa-style retail/tax invoice PDF dynamically based on order items")
-    public ResponseEntity<InvoiceResponseDTO> generateInvoice(
+    @PostMapping("/generateInvoiceJson")
+    @Operation(summary = "Generate invoice PDF (JSON response)", 
+               description = "Generates a Nykaa-style retail/tax invoice PDF and returns JSON response with Base64 encoded PDF")
+    public ResponseEntity<InvoiceResponseDTO> generateInvoiceJson(
             @Valid @RequestBody InvoiceRequestDTO requestDTO) {
         
-        log.info("Received invoice generation request for order: {}", requestDTO.getOrderNo());
+        log.info("Received invoice generation request (JSON) for order: {}", requestDTO.getOrderNo());
         
         try {
             InvoiceResponseDTO response = invoiceService.generateInvoice(requestDTO);
@@ -101,12 +132,11 @@ public class InvoiceController {
             }
             invReq.setOrderItemsList(items);
         }
-        InvoiceResponseDTO res = invoiceService.generateInvoice(invReq);
-        byte[] pdf = java.util.Base64.getDecoder().decode(res.getPdfBase64());
+        InvoiceService.InvoicePdfResult result = invoiceService.generateInvoicePdf(invReq);
         return ResponseEntity.ok()
                 .header("Content-Type", "application/pdf")
-                .header("Content-Disposition", "inline; filename=" + res.getInvoiceNo() + ".pdf")
-                .body(pdf);
+                .header("Content-Disposition", "inline; filename=" + result.getInvoiceNo() + ".pdf")
+                .body(result.getPdfBytes());
     }
 
     private Integer safeInt(String v) {
