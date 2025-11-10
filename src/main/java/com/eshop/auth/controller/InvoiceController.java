@@ -2,6 +2,7 @@ package com.eshop.auth.controller;
 
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.eshop.auth.dto.InvoiceResponseDTO;
+import com.eshop.auth.dto.NykaaInvoicePayload;
 import com.eshop.auth.dto.OrderFetchRequestDTO;
 import com.eshop.auth.dto.OrderFetchResponseDTO;
 import com.eshop.auth.dto.OrderDetailDTO;
@@ -91,6 +92,37 @@ public class InvoiceController {
             errorResponse.setResponseMessage("Failed to generate invoice: " + e.getMessage());
             
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Generate invoice PDF from raw payload (new Nykaa layout).
+     *
+     * @param payload structured invoice payload
+     * @return PDF file as binary stream
+     */
+    @PostMapping("/invoice/render")
+    @Operation(summary = "Generate invoice PDF from payload",
+            description = "Renders a single-page Nykaa invoice using the provided payload.")
+    public ResponseEntity<byte[]> renderInvoiceFromPayload(
+            @Valid @RequestBody NykaaInvoicePayload payload) {
+
+        log.info("Received invoice render request from payload");
+
+        try {
+            InvoiceService.InvoicePdfResult result = invoiceService.generateInvoiceFromPayload(payload);
+
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/pdf")
+                    .header("Content-Disposition", "inline; filename=\"" + result.getInvoiceNo() + ".pdf\"")
+                    .header("Content-Length", String.valueOf(result.getPdfBytes().length))
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
+                    .header("Expires", "0")
+                    .body(result.getPdfBytes());
+        } catch (Exception e) {
+            log.error("Error generating invoice from payload", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

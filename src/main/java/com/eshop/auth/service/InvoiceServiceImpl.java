@@ -3,6 +3,7 @@ package com.eshop.auth.service;
 import com.eshop.auth.dto.InvoiceItemDTO;
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.eshop.auth.dto.InvoiceResponseDTO;
+import com.eshop.auth.dto.NykaaInvoicePayload;
 import com.eshop.auth.entity.Order;
 import com.eshop.auth.entity.OrderItem;
 import com.eshop.auth.entity.NyProduct;
@@ -20,9 +21,13 @@ import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.element.Text;
+import com.itextpdf.layout.element.LineSeparator;
+import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
+import com.itextpdf.layout.properties.HorizontalAlignment;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.WriterException;
@@ -43,6 +48,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
+import java.util.Arrays;
 
 /**
  * Service implementation for invoice generation
@@ -57,6 +63,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private static final String DEFAULT_SELLER_ADDRESS = "104, Vasan Udhyog Bhavan, Lower Parel, Mumbai – 400013";
     private static final String DEFAULT_SELLER_GSTIN = "27AAFCN5072P1ZV";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MMM-yyyy");
+    private static final DecimalFormat AMOUNT_FORMAT = new DecimalFormat("#0.00");
     
     @Autowired
     private OrderRepository orderRepository;
@@ -141,6 +148,23 @@ public class InvoiceServiceImpl implements InvoiceService {
         } catch (Exception e) {
             logger.error("Error generating invoice from order: " + orderNo, e);
             throw new RuntimeException("Failed to generate invoice from order: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    public InvoiceService.InvoicePdfResult generateInvoiceFromPayload(NykaaInvoicePayload payload) {
+        logger.info("Generating Nykaa invoice from payload");
+        try {
+            String invoiceNo = payload != null && payload.getHeaderInfo() != null
+                    ? defaultString(payload.getHeaderInfo().getInvoiceNumber(), generateInvoiceNumber())
+                    : generateInvoiceNumber();
+            
+            byte[] pdfBytes = buildNykaaInvoiceFromPayload(payload, invoiceNo);
+            String filePath = savePdfToFile(pdfBytes, invoiceNo);
+            return new InvoiceService.InvoicePdfResult(pdfBytes, invoiceNo, filePath);
+        } catch (Exception e) {
+            logger.error("Error generating invoice from payload", e);
+            throw new RuntimeException("Failed to generate invoice from payload: " + e.getMessage(), e);
         }
     }
     
@@ -255,6 +279,192 @@ public class InvoiceServiceImpl implements InvoiceService {
         request.setAwbNo(awbNo);
         
         return request;
+    }
+    
+    private byte[] buildNykaaInvoiceFromPayload(NykaaInvoicePayload payload, String invoiceNo) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfWriter writer = new PdfWriter(baos);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document document = new Document(pdf, PageSize.A4);
+        document.setMargins(20, 20, 20, 20);
+        
+        addPayloadHeader(document, payload, invoiceNo);
+        document.add(spacer(6));
+        document.add(new LineSeparator(new SolidLine()));
+        document.add(spacer(6));
+        addSellerBuyerBlock(document, payload, invoiceNo);
+        document.add(spacer(10));
+        addPayloadItemsTable(document, payload);
+        document.add(spacer(10));
+        addPayloadFinancialSummary(document, payload);
+        addNykaaFooter(document);
+        
+        document.close();
+        return baos.toByteArray();
+    }
+    
+    private void addPayloadHeader(Document document, NykaaInvoicePayload payload, String invoiceNo) throws Exception {
+        NykaaInvoicePayload.HeaderInfo header = payload != null ? payload.getHeaderInfo() : null;
+        NykaaInvoicePayload.FinancialSummary summary = payload != null ? payload.getFinancialSummary() : null;
+        
+        float[] topWidths = {33f, 37f, 30f};
+        Table top = new Table(UnitValue.createPercentArray(topWidths)).setWidth(UnitValue.createPercentValue(100));
+        
+        // Left - Nykaa Man logo/text
+        Paragraph brand = new Paragraph("NYKAA\nMAN")
+                .setBold()
+                .setFontSize(28)
+                .setTextAlignment(TextAlignment.LEFT);
+        top.addCell(new Cell().add(brand)
+                .setBorder(Border.NO_BORDER)
+                .setVerticalAlignment(VerticalAlignment.TOP));
+        
+        // Middle - order details
+        Table details = new Table(UnitValue.createPercentArray(new float[]{50f, 50f}))
+                .setWidth(UnitValue.createPercentValue(100));
+        addKeyValue(details, "Order Number", header != null ? header.getOrderNumber() : "");
+        addKeyValue(details, "Nykaa Order No.", header != null ? header.getNykaaOrderNo() : "");
+        addKeyValue(details, "Order Date", header != null ? header.getOrderDate() : "");
+        addKeyValue(details, "Transporter", header != null ? header.getTransporter() : "");
+        addKeyValue(details, "Payment Mode", header != null ? header.getPaymentMode() : "");
+        addKeyValue(details, "Billing State #", header != null ? header.getBillingState() : "");
+        addKeyValue(details, "Place Of Supply", header != null ? header.getPlaceOfSupply() : "");
+        top.addCell(new Cell().add(details).setBorder(Border.NO_BORDER));
+        
+        // Right - title, QR, AWB & barcode
+        Cell rightCell = new Cell().setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT);
+        rightCell.add(new Paragraph("RETAIL / TAX INVOICE\n(Original For Recipient)")
+                .setBold()
+                .setTextAlignment(TextAlignment.RIGHT));
+        
+        double netPayable = summary != null ? safeDouble(summary.getNetPayable()) : 0.0;
+        String qrPayload = invoiceNo + "|" + AMOUNT_FORMAT.format(netPayable);
+        Image qr = new Image(ImageDataFactory.create(generateQrPng(qrPayload, 200, 200)));
+        qr.setAutoScale(true);
+        qr.setMarginTop(8);
+        rightCell.add(qr);
+        
+        String awb = header != null ? header.getAwbNo() : "";
+        rightCell.add(new Paragraph("AWB No: " + defaultString(awb, "-"))
+                .setMarginTop(8)
+                .setTextAlignment(TextAlignment.RIGHT));
+        Image barcode = new Image(ImageDataFactory.create(
+                generateBarcodePng(defaultString(awb, invoiceNo), 280, 50)));
+        barcode.setAutoScale(true);
+        barcode.setMarginTop(4);
+        rightCell.add(barcode);
+        
+        top.addCell(rightCell);
+        document.add(top);
+    }
+    
+    private void addSellerBuyerBlock(Document document, NykaaInvoicePayload payload, String invoiceNo) {
+        NykaaInvoicePayload.HeaderInfo header = payload.getHeaderInfo();
+        NykaaInvoicePayload.SellerDetails seller = payload.getSellerDetails();
+        NykaaInvoicePayload.BuyerDetails buyer = payload.getBuyerDetails();
+        
+        Table block = new Table(UnitValue.createPercentArray(new float[]{33f, 34f, 33f}))
+                .setWidth(UnitValue.createPercentValue(100));
+        
+        String invoiceSummary = String.format("Invoice Number: %s | Invoice Date: %s | Item(s) In The Box: %s",
+                defaultString(header != null ? header.getInvoiceNumber() : "", invoiceNo),
+                defaultString(header != null ? header.getInvoiceDate() : "", "-"),
+                header != null && header.getItemsInTheBox() != null
+                        ? String.valueOf(header.getItemsInTheBox())
+                        : "-");
+        block.addCell(new Cell().add(new Paragraph(invoiceSummary).setBold())
+                .setBorder(Border.NO_BORDER)
+                .setVerticalAlignment(VerticalAlignment.TOP));
+        
+        StringBuilder sellerInfo = new StringBuilder();
+        sellerInfo.append("Seller Details: ").append(defaultString(seller != null ? seller.getPincode() : "", "-"));
+        sellerInfo.append("\n").append(defaultString(seller != null ? seller.getName() : "", "-"));
+        sellerInfo.append(" | GSTIN #: ").append(defaultString(seller != null ? seller.getGstin() : "", "-"));
+        sellerInfo.append("\n").append(defaultString(seller != null ? seller.getAddressLine1() : "", ""));
+        if (seller != null && seller.getAddressLine2() != null && !seller.getAddressLine2().isBlank()) {
+            sellerInfo.append("\n").append(seller.getAddressLine2());
+        }
+        block.addCell(new Cell().add(new Paragraph(sellerInfo.toString()))
+                .setBorder(Border.NO_BORDER)
+                .setTextAlignment(TextAlignment.RIGHT)
+                .setVerticalAlignment(VerticalAlignment.TOP));
+        
+        StringBuilder buyerInfo = new StringBuilder();
+        buyerInfo.append("SHIPPING & BILLING ADDRESS:\n");
+        buyerInfo.append(defaultString(buyer != null ? buyer.getName() : "", "-")).append("\n");
+        buyerInfo.append(defaultString(buyer != null ? buyer.getAddressLine1() : "", "")).append("\n");
+        buyerInfo.append(defaultString(buyer != null ? buyer.getCity() : "", ""))
+                .append(", ")
+                .append(defaultString(buyer != null ? buyer.getStatePincode() : "", "")).append("\n");
+        buyerInfo.append(defaultString(buyer != null ? buyer.getCountry() : "", "")).append("\n");
+        buyerInfo.append("Buyer UID/ GSTIN #: ")
+                .append(defaultString(buyer != null ? buyer.getBuyerUidGstin() : "", "-"));
+        
+        block.addCell(new Cell().add(new Paragraph(buyerInfo.toString()).setBold())
+                .setBorder(Border.NO_BORDER)
+                .setTextAlignment(TextAlignment.CENTER));
+        
+        document.add(block);
+    }
+    
+    private void addPayloadItemsTable(Document document, NykaaInvoicePayload payload) {
+        List<NykaaInvoicePayload.ProductItem> items = payload.getProductItems();
+        if (items == null || items.isEmpty()) {
+            document.add(new Paragraph("No product items available.").setItalic().setFontSize(10));
+            return;
+        }
+        
+        float[] widths = {30f, 180f, 60f, 40f, 70f, 70f, 80f, 60f, 70f, 60f, 70f};
+        Table table = new Table(UnitValue.createPercentArray(widths)).setWidth(UnitValue.createPercentValue(100));
+        
+        List<String> headers = Arrays.asList("S.No", "Description", "HSN", "Qty", "Unit Price",
+                "Discount", "Taxable Value", "CGST", "SGST/UTGST", "IGST", "Total");
+        headers.forEach(h -> table.addCell(headerCell(h)));
+        
+        for (NykaaInvoicePayload.ProductItem item : items) {
+            table.addCell(bodyCell(item.getSerialNo() != null ? String.valueOf(item.getSerialNo()) : "", TextAlignment.CENTER));
+            
+            Paragraph desc = new Paragraph();
+            desc.add(new Text(defaultString(item.getProductName(), "-")).setBold());
+            if (item.getDescription() != null && !item.getDescription().isBlank()) {
+                desc.add("\n").add(new Text(item.getDescription()).setFontSize(9));
+            }
+            table.addCell(new Cell().add(desc).setTextAlignment(TextAlignment.LEFT));
+            
+            table.addCell(bodyCell(defaultString(item.getHsn(), ""), TextAlignment.CENTER));
+            table.addCell(bodyCell(numberFormat(item.getQty()), TextAlignment.CENTER));
+            table.addCell(bodyCell(formatAmount(item.getUnitPrice()), TextAlignment.RIGHT));
+            table.addCell(bodyCell(formatAmount(item.getDiscount()), TextAlignment.RIGHT));
+            table.addCell(bodyCell(formatAmount(item.getTaxableValue()), TextAlignment.RIGHT));
+            table.addCell(bodyCell(formatAmount(item.getCgst()), TextAlignment.RIGHT));
+            table.addCell(bodyCell(formatAmount(item.getSgstUtgst()), TextAlignment.RIGHT));
+            table.addCell(bodyCell(formatAmount(item.getIgst()), TextAlignment.RIGHT));
+            table.addCell(bodyCell(formatAmount(item.getTotal()), TextAlignment.RIGHT));
+        }
+        
+        document.add(table);
+    }
+    
+    private void addPayloadFinancialSummary(Document document, NykaaInvoicePayload payload) {
+        NykaaInvoicePayload.FinancialSummary summary = payload.getFinancialSummary();
+        if (summary == null) {
+            return;
+        }
+        
+        Table totals = new Table(UnitValue.createPercentArray(new float[]{70f, 30f}))
+                .setWidth(UnitValue.createPercentValue(45))
+                .setHorizontalAlignment(HorizontalAlignment.RIGHT);
+        
+        totals.addCell(cellNoBorder("Total Taxable Amount", true));
+        totals.addCell(cellRightNoBorder(formatAmount(summary.getTotalAmountTaxable()), false));
+        
+        totals.addCell(cellNoBorder("Total Tax (IGST/CGST/SGST)", true));
+        totals.addCell(cellRightNoBorder(formatAmount(summary.getTotalTaxIgst()), false));
+        
+        totals.addCell(cellNoBorder("Net Payable", true));
+        totals.addCell(cellRightNoBorder(formatAmount(summary.getNetPayable()), true));
+        
+        document.add(totals);
     }
     
     /**
@@ -489,6 +699,15 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     // ---------------- Helpers ----------------
+    private void addKeyValue(Table table, String label, String value) {
+        table.addCell(new Cell().add(new Paragraph(defaultString(label, "-")).setBold())
+                .setBorder(Border.NO_BORDER)
+                .setTextAlignment(TextAlignment.LEFT));
+        table.addCell(new Cell().add(new Paragraph(defaultString(value, "-")))
+                .setBorder(Border.NO_BORDER)
+                .setTextAlignment(TextAlignment.LEFT));
+    }
+
     private Cell headerCell(String text) {
         return new Cell().add(new Paragraph(text).setBold()).setTextAlignment(TextAlignment.CENTER);
     }
@@ -530,5 +749,24 @@ public class InvoiceServiceImpl implements InvoiceService {
         var matrix = new MultiFormatWriter().encode(text, BarcodeFormat.QR_CODE, width, height);
         MatrixToImageWriter.writeToStream(matrix, "png", baos);
         return baos.toByteArray();
+    }
+
+    private String defaultString(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback == null ? "" : fallback;
+        }
+        return value;
+    }
+
+    private double safeDouble(Double value) {
+        return value != null ? value : 0.0;
+    }
+
+    private String formatAmount(Double value) {
+        return AMOUNT_FORMAT.format(value != null ? value : 0.0);
+    }
+
+    private String numberFormat(Integer value) {
+        return value != null ? value.toString() : "";
     }
 }

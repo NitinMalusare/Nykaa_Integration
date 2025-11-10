@@ -2,6 +2,7 @@ package com.eshop.auth.service;
 
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.eshop.auth.dto.InvoiceResponseDTO;
+import com.eshop.auth.dto.NykaaInvoicePayload;
 
 /**
  * Service interface for invoice generation
@@ -23,6 +24,14 @@ public interface InvoiceService {
      * @return PDF bytes and invoice number
      */
     InvoicePdfResult generateInvoicePdf(InvoiceRequestDTO request);
+    
+    /**
+     * Generate invoice PDF using the new Nykaa layout from raw payload.
+     *
+     * @param payload Structured payload containing all invoice data
+     * @return PDF bytes and invoice number
+     */
+    InvoicePdfResult generateInvoiceFromPayload(NykaaInvoicePayload payload);
     
     /**
      * Generate invoice PDF from order number (fetches order and order items dynamically)
