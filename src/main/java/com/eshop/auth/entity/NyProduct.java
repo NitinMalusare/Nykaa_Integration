@@ -64,6 +64,8 @@ public class NyProduct {
     private String height;
     private String serialTracking;
     private String sellerId;
+    
+    private String hsn; // HSN code for tax purposes
 
     @CreationTimestamp
     @Column(updatable = false)

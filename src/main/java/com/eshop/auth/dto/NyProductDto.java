@@ -77,4 +77,7 @@ public class NyProductDto {
 
     @JsonProperty("sellerId")
     private String sellerId;
+    
+    @JsonProperty("hsn")
+    private String hsn; // HSN code for tax purposes
 }

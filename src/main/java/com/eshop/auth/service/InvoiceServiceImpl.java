@@ -3,6 +3,12 @@ package com.eshop.auth.service;
 import com.eshop.auth.dto.InvoiceItemDTO;
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.eshop.auth.dto.InvoiceResponseDTO;
+import com.eshop.auth.entity.Order;
+import com.eshop.auth.entity.OrderItem;
+import com.eshop.auth.entity.NyProduct;
+import com.eshop.auth.repository.OrderRepository;
+import com.eshop.auth.repository.OrderItemRepository;
+import com.eshop.auth.repository.NyProductRepository;
 import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
@@ -23,9 +29,12 @@ import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.Optional;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -44,6 +53,19 @@ public class InvoiceServiceImpl implements InvoiceService {
     private static final Logger logger = LoggerFactory.getLogger(InvoiceServiceImpl.class);
     private static final String INVOICE_DIR = "./invoices";
     private static final String INVOICE_PREFIX = "INV-NYKA-";
+    private static final String DEFAULT_SELLER_NAME = "Nykaa E-Retail Limited";
+    private static final String DEFAULT_SELLER_ADDRESS = "104, Vasan Udhyog Bhavan, Lower Parel, Mumbai – 400013";
+    private static final String DEFAULT_SELLER_GSTIN = "27AAFCN5072P1ZV";
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MMM-yyyy");
+    
+    @Autowired
+    private OrderRepository orderRepository;
+    
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+    
+    @Autowired
+    private NyProductRepository nyProductRepository;
     
     public InvoiceServiceImpl() {
         // Create invoices directory if it doesn't exist
@@ -90,6 +112,149 @@ public class InvoiceServiceImpl implements InvoiceService {
             logger.error("Error generating invoice PDF for order: " + request.getOrderNo(), e);
             throw new RuntimeException("Failed to generate invoice PDF: " + e.getMessage(), e);
         }
+    }
+    
+    @Override
+    public InvoiceService.InvoicePdfResult generateInvoiceFromOrder(String orderNo, String token) {
+        logger.info("Generating invoice from order: {} with token: {}", orderNo, token);
+        
+        try {
+            // Fetch order
+            List<Order> orders = orderRepository.findByOrderNoIn(java.util.List.of(orderNo));
+            if (orders == null || orders.isEmpty()) {
+                throw new RuntimeException("Order not found: " + orderNo);
+            }
+            Order order = orders.get(0);
+            
+            // Fetch order items
+            List<OrderItem> orderItems = orderItemRepository.findByOrderNo(orderNo);
+            if (orderItems == null || orderItems.isEmpty()) {
+                throw new RuntimeException("No order items found for order: " + orderNo);
+            }
+            
+            // Build invoice request from order data
+            InvoiceRequestDTO invoiceRequest = buildInvoiceRequestFromOrder(order, orderItems, token);
+            
+            // Generate invoice
+            return generateInvoicePdf(invoiceRequest);
+            
+        } catch (Exception e) {
+            logger.error("Error generating invoice from order: " + orderNo, e);
+            throw new RuntimeException("Failed to generate invoice from order: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Build InvoiceRequestDTO from Order and OrderItems dynamically
+     */
+    private InvoiceRequestDTO buildInvoiceRequestFromOrder(Order order, List<OrderItem> orderItems, String token) {
+        InvoiceRequestDTO request = new InvoiceRequestDTO();
+        
+        // Seller details (can be made configurable)
+        request.setSellerName(DEFAULT_SELLER_NAME);
+        request.setSellerAddress(DEFAULT_SELLER_ADDRESS);
+        request.setSellerGstin(order.getGstin() != null && !order.getGstin().isEmpty() 
+                ? order.getGstin() : DEFAULT_SELLER_GSTIN);
+        
+        // Buyer details from order
+        request.setBuyerName(order.getBillToName() != null ? order.getBillToName() : order.getCustomerName());
+        
+        // Build buyer address
+        StringBuilder buyerAddress = new StringBuilder();
+        if (order.getBillAddress1() != null) buyerAddress.append(order.getBillAddress1());
+        if (order.getBillAddress2() != null && !order.getBillAddress2().isEmpty()) {
+            if (buyerAddress.length() > 0) buyerAddress.append(", ");
+            buyerAddress.append(order.getBillAddress2());
+        }
+        if (order.getBillCity() != null && !order.getBillCity().isEmpty()) {
+            if (buyerAddress.length() > 0) buyerAddress.append(", ");
+            buyerAddress.append(order.getBillCity());
+        }
+        if (order.getBillState() != null && !order.getBillState().isEmpty()) {
+            if (buyerAddress.length() > 0) buyerAddress.append(", ");
+            buyerAddress.append(order.getBillState());
+        }
+        if (order.getBillZipCode() != null && !order.getBillZipCode().isEmpty()) {
+            if (buyerAddress.length() > 0) buyerAddress.append(" – ");
+            buyerAddress.append(order.getBillZipCode());
+        }
+        if (buyerAddress.length() == 0 && order.getAddress1() != null) {
+            buyerAddress.append(order.getAddress1());
+            if (order.getCity() != null) buyerAddress.append(", ").append(order.getCity());
+            if (order.getState() != null) buyerAddress.append(", ").append(order.getState());
+            if (order.getPinCode() != null) buyerAddress.append(" – ").append(order.getPinCode());
+        }
+        request.setBuyerAddress(buyerAddress.toString());
+        
+        // Order details
+        request.setOrderNo(order.getOrderNo());
+        request.setOrderDate(order.getOrderDate() != null 
+                ? order.getOrderDate().format(DATE_FORMATTER) 
+                : LocalDateTime.now().format(DATE_FORMATTER));
+        request.setPaymentMode(order.getPaymentMethod() != null ? order.getPaymentMethod() : "PREPAID");
+        request.setPlaceOfSupply(order.getBillState() != null ? order.getBillState() 
+                : (order.getState() != null ? order.getState() : "Maharashtra(27)"));
+        
+        // Build invoice items from order items
+        List<InvoiceItemDTO> invoiceItems = new ArrayList<>();
+        int lineNo = 1;
+        
+        for (OrderItem item : orderItems) {
+            InvoiceItemDTO invoiceItem = new InvoiceItemDTO();
+            invoiceItem.setOrderNo(order.getOrderNo());
+            invoiceItem.setLineNo(lineNo++);
+            invoiceItem.setTransporterName(item.getTransName() != null ? item.getTransName() : "Nykaa Logistics");
+            invoiceItem.setTrackingNo(item.getAwbNo() != null ? item.getAwbNo() : "");
+            invoiceItem.setDescription(item.getSkuName() != null ? item.getSkuName() : "Product");
+            
+            // Fetch product to get HSN code
+            String hsn = "";
+            if (item.getSkuCode() != null && token != null) {
+                Optional<NyProduct> productOpt = nyProductRepository.findBySkuAndToken(item.getSkuCode(), token);
+                if (productOpt.isPresent()) {
+                    hsn = productOpt.get().getHsn() != null ? productOpt.get().getHsn() : "";
+                }
+            }
+            invoiceItem.setHsn(hsn.isEmpty() ? "996819" : hsn); // Default HSN if not found
+            
+            // Quantity
+            invoiceItem.setQty(item.getShippedQty() != null && !item.getShippedQty().isEmpty()
+                    ? Integer.parseInt(item.getShippedQty()) 
+                    : (item.getOrderQty() != null && !item.getOrderQty().isEmpty()
+                            ? Integer.parseInt(item.getOrderQty()) : 1));
+            
+            // Unit price
+            invoiceItem.setUnitPrice(item.getUnitPrice() != null && !item.getUnitPrice().isEmpty()
+                    ? Double.parseDouble(item.getUnitPrice()) : 0.0);
+            
+            // Discount
+            invoiceItem.setDiscount(item.getDiscountAmount() != null && !item.getDiscountAmount().isEmpty()
+                    ? Double.parseDouble(item.getDiscountAmount()) : 0.0);
+            
+            // Tax rate (default 5%, can be calculated from line_tax_amount if available)
+            double taxableValue = (invoiceItem.getQty() * invoiceItem.getUnitPrice()) - invoiceItem.getDiscount();
+            double taxRate = 5.0; // Default tax rate
+            if (item.getLineTaxAmount() != null && !item.getLineTaxAmount().isEmpty() && taxableValue > 0) {
+                double taxAmount = Double.parseDouble(item.getLineTaxAmount());
+                taxRate = (taxAmount / taxableValue) * 100;
+            }
+            invoiceItem.setTaxRate(taxRate);
+            
+            invoiceItems.add(invoiceItem);
+        }
+        
+        request.setOrderItemsList(invoiceItems);
+        
+        // AWB number (use first order item's AWB or order number)
+        String awbNo = "";
+        if (!orderItems.isEmpty() && orderItems.get(0).getAwbNo() != null) {
+            awbNo = orderItems.get(0).getAwbNo();
+        } else {
+            awbNo = order.getOrderNo(); // Fallback to order number
+        }
+        request.setAwbNo(awbNo);
+        
+        return request;
     }
     
     /**
@@ -175,12 +340,12 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .setBold().setTextAlignment(TextAlignment.CENTER);
         row.addCell(new Cell().add(title).setBorder(Border.NO_BORDER).setVerticalAlignment(VerticalAlignment.MIDDLE));
 
-        // Right: QR + AWB barcode
+        // Right: QR + AWB barcode (larger size for better visibility)
         Table codes = new Table(new float[]{1}).setWidth(UnitValue.createPercentValue(100));
-        Image qr = new Image(ImageDataFactory.create(generateQrPng(request.getAwbNo(), 140, 140)));
+        Image qr = new Image(ImageDataFactory.create(generateQrPng(request.getAwbNo(), 200, 200)));
         codes.addCell(new Cell().add(qr).setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT));
 
-        Image awb = new Image(ImageDataFactory.create(generateBarcodePng(request.getAwbNo(), 240, 32)));
+        Image awb = new Image(ImageDataFactory.create(generateBarcodePng(request.getAwbNo(), 280, 50)));
         codes.addCell(new Cell().add(awb).setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT));
         row.addCell(new Cell().add(codes).setBorder(Border.NO_BORDER));
 
@@ -222,7 +387,6 @@ public class InvoiceServiceImpl implements InvoiceService {
                 "CGST", "SGST/UTGST", "IGST", "Total"};
         for (String h : headers) table.addCell(headerCell(h));
 
-        double totalAmount = 0, totalTax = 0;
         for (int i = 0; i < items.size(); i++) {
             InvoiceItemDTO it = items.get(i);
             double taxable = (it.getQty() * it.getUnitPrice()) - it.getDiscount();
@@ -230,7 +394,6 @@ public class InvoiceServiceImpl implements InvoiceService {
             double cgst = 0, sgst = 0, igst = 0;
             if (intra) { cgst = tax / 2; sgst = tax / 2; } else { igst = tax; }
             double lineTotal = taxable + tax;
-            totalAmount += taxable; totalTax += tax;
 
             table.addCell(bodyCell(String.valueOf(i + 1), TextAlignment.CENTER));
             table.addCell(bodyCell(it.getDescription(), TextAlignment.LEFT));
@@ -277,7 +440,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         row.addCell(new Cell().add(new Paragraph("NYKAA\nMAN").setBold().setFontSize(28)).setBorder(Border.NO_BORDER));
         row.addCell(new Cell().add(new Paragraph("RETAIL / TAX INVOICE\n(Original For Recipient)").setBold().setTextAlignment(TextAlignment.CENTER)).setBorder(Border.NO_BORDER));
         Table codes = new Table(new float[]{1}).setWidth(UnitValue.createPercentValue(100));
-        Image qr = new Image(ImageDataFactory.create(generateQrPng(request.getAwbNo(), 120, 120)));
+        Image qr = new Image(ImageDataFactory.create(generateQrPng(request.getAwbNo(), 200, 200)));
         codes.addCell(new Cell().add(qr).setBorder(Border.NO_BORDER).setTextAlignment(TextAlignment.RIGHT));
         row.addCell(new Cell().add(codes).setBorder(Border.NO_BORDER));
         doc.add(row);

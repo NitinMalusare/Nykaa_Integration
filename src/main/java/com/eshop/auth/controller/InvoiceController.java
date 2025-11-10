@@ -48,11 +48,14 @@ public class InvoiceController {
             InvoiceService.InvoicePdfResult result = invoiceService.generateInvoicePdf(requestDTO);
             log.info("Invoice generated successfully: {}", result.getInvoiceNo());
             
-            // Return PDF file with appropriate headers
+            // Return PDF file with appropriate headers for PDF format
             return ResponseEntity.ok()
                     .header("Content-Type", "application/pdf")
-                    .header("Content-Disposition", "attachment; filename=" + result.getInvoiceNo() + ".pdf")
+                    .header("Content-Disposition", "inline; filename=\"" + result.getInvoiceNo() + ".pdf\"")
                     .header("Content-Length", String.valueOf(result.getPdfBytes().length))
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
+                    .header("Expires", "0")
                     .body(result.getPdfBytes());
             
         } catch (Exception e) {
@@ -88,6 +91,42 @@ public class InvoiceController {
             errorResponse.setResponseMessage("Failed to generate invoice: " + e.getMessage());
             
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Generate invoice PDF from order number (dynamic data from order and order items)
+     * 
+     * @param orderNo Order number
+     * @param token API token for product lookup
+     * @return PDF file as binary stream
+     */
+    @PostMapping("/generateInvoiceFromOrder/{orderNo}")
+    @Operation(summary = "Generate invoice PDF from order number", 
+               description = "Generates invoice PDF dynamically from existing order and order items. Fetches product details including HSN codes.")
+    public ResponseEntity<byte[]> generateInvoiceFromOrder(
+            @PathVariable String orderNo,
+            @RequestHeader("apiKey") String token) {
+        
+        log.info("Received invoice generation request for order: {} with token: {}", orderNo, token);
+        
+        try {
+            InvoiceService.InvoicePdfResult result = invoiceService.generateInvoiceFromOrder(orderNo, token);
+            log.info("Invoice generated successfully: {} for order: {}", result.getInvoiceNo(), orderNo);
+            
+            // Return PDF file with appropriate headers for PDF format
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/pdf")
+                    .header("Content-Disposition", "inline; filename=\"" + result.getInvoiceNo() + ".pdf\"")
+                    .header("Content-Length", String.valueOf(result.getPdfBytes().length))
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
+                    .header("Expires", "0")
+                    .body(result.getPdfBytes());
+            
+        } catch (Exception e) {
+            log.error("Error generating invoice for order: " + orderNo, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
@@ -135,7 +174,11 @@ public class InvoiceController {
         InvoiceService.InvoicePdfResult result = invoiceService.generateInvoicePdf(invReq);
         return ResponseEntity.ok()
                 .header("Content-Type", "application/pdf")
-                .header("Content-Disposition", "inline; filename=" + result.getInvoiceNo() + ".pdf")
+                .header("Content-Disposition", "inline; filename=\"" + result.getInvoiceNo() + ".pdf\"")
+                .header("Content-Length", String.valueOf(result.getPdfBytes().length))
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
                 .body(result.getPdfBytes());
     }
 

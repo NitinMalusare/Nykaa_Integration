@@ -172,6 +172,7 @@ public class NyProductServiceImpl implements NyProductService {
         dto.setHeight(product.getHeight());
         dto.setSerialTracking(product.getSerialTracking());
         dto.setSellerId(product.getSellerId());
+        dto.setHsn(product.getHsn());
         return dto;
     }
 
@@ -196,6 +197,7 @@ public class NyProductServiceImpl implements NyProductService {
         product.setHeight(dto.getHeight());
         product.setSerialTracking(dto.getSerialTracking());
         product.setSellerId(dto.getSellerId());
+        product.setHsn(dto.getHsn());
         return product;
     }
 
@@ -227,5 +229,6 @@ public class NyProductServiceImpl implements NyProductService {
         product.setHeight(dto.getHeight());
         product.setSerialTracking(dto.getSerialTracking());
         product.setSellerId(dto.getSellerId());
+        product.setHsn(dto.getHsn());
     }
 }

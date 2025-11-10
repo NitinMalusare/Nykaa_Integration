@@ -25,6 +25,15 @@ public interface InvoiceService {
     InvoicePdfResult generateInvoicePdf(InvoiceRequestDTO request);
     
     /**
+     * Generate invoice PDF from order number (fetches order and order items dynamically)
+     * 
+     * @param orderNo Order number
+     * @param token API token for product lookup
+     * @return PDF bytes and invoice number
+     */
+    InvoicePdfResult generateInvoiceFromOrder(String orderNo, String token);
+    
+    /**
      * Result class for PDF generation
      */
     class InvoicePdfResult {

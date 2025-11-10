@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS ny_products (
     height VARCHAR(255),
     serial_tracking VARCHAR(1),
     seller_id VARCHAR(255),
+    hsn VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_sku_token (sku, token)
