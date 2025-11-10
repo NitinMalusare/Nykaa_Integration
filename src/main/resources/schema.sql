@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS ny_products (
     vendor_sku_code VARCHAR(255),
     mfg_sku_code VARCHAR(255),
     sku_name VARCHAR(255) NOT NULL,
+    description TEXT,
     mrp VARCHAR(255) NOT NULL,
     sale_price VARCHAR(255) NOT NULL,
     base_cost VARCHAR(255),

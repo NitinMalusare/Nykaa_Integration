@@ -35,6 +35,8 @@ public class NyProduct {
     @NotBlank(message = "SKU name is required")
     @Column(nullable = false)
     private String skuName;
+    
+    private String description; // Product description
 
     @NotBlank(message = "MRP is required")
     @Pattern(regexp = "^\\d+(\\.\\d{1,2})?$", message = "Invalid MRP format")

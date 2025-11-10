@@ -229,16 +229,24 @@ public class InvoiceServiceImpl implements InvoiceService {
             invoiceItem.setLineNo(lineNo++);
             invoiceItem.setTransporterName(item.getTransName() != null ? item.getTransName() : "Nykaa Logistics");
             invoiceItem.setTrackingNo(item.getAwbNo() != null ? item.getAwbNo() : "");
-            invoiceItem.setDescription(item.getSkuName() != null ? item.getSkuName() : "Product");
             
-            // Fetch product to get HSN code
+            // Fetch product to get HSN code and description
             String hsn = "";
+            String productDescription = item.getSkuName() != null ? item.getSkuName() : "Product";
             if (item.getSkuCode() != null && token != null) {
                 Optional<NyProduct> productOpt = nyProductRepository.findBySkuAndToken(item.getSkuCode(), token);
                 if (productOpt.isPresent()) {
-                    hsn = productOpt.get().getHsn() != null ? productOpt.get().getHsn() : "";
+                    NyProduct product = productOpt.get();
+                    hsn = product.getHsn() != null ? product.getHsn() : "";
+                    // Use product description if available, otherwise use skuName
+                    if (product.getDescription() != null && !product.getDescription().isEmpty()) {
+                        productDescription = product.getSkuName() + "\n" + product.getDescription();
+                    } else {
+                        productDescription = product.getSkuName() != null ? product.getSkuName() : productDescription;
+                    }
                 }
             }
+            invoiceItem.setDescription(productDescription);
             invoiceItem.setHsn(hsn.isEmpty() ? "996819" : hsn); // Default HSN if not found
             
             // Quantity

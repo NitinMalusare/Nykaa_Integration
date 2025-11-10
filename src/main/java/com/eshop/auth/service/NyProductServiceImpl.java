@@ -168,6 +168,7 @@ public class NyProductServiceImpl implements NyProductService {
         dto.setVendorSkuCode(product.getVendorSkuCode());
         dto.setMfgSkuCode(product.getMfgSkuCode());
         dto.setSkuName(product.getSkuName());
+        dto.setDescription(product.getDescription());
         dto.setMrp(product.getMrp());
         dto.setSalePrice(product.getSalePrice());
         dto.setBaseCost(product.getBaseCost());
@@ -192,6 +193,7 @@ public class NyProductServiceImpl implements NyProductService {
         product.setVendorSkuCode(dto.getVendorSkuCode());
         product.setMfgSkuCode(dto.getMfgSkuCode());
         product.setSkuName(dto.getSkuName());
+        product.setDescription(dto.getDescription());
         product.setMrp(dto.getMrp());
         product.setSalePrice(dto.getSalePrice());
         product.setBaseCost(dto.getBaseCost());
@@ -220,6 +222,7 @@ public class NyProductServiceImpl implements NyProductService {
         product.setVendorSkuCode(dto.getVendorSkuCode());
         product.setMfgSkuCode(dto.getMfgSkuCode());
         product.setSkuName(dto.getSkuName());
+        product.setDescription(dto.getDescription());
         product.setMrp(dto.getMrp());
         product.setSalePrice(dto.getSalePrice());
         product.setBaseCost(dto.getBaseCost());
