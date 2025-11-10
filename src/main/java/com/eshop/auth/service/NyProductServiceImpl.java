@@ -19,11 +19,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class NyProductServiceImpl implements NyProductService {
 
     private static final Logger logger = LoggerFactory.getLogger(NyProductServiceImpl.class);
+    private static final AtomicLong hsnCounter = new AtomicLong(System.currentTimeMillis() % 1000000);
 
     @Autowired
     private NyProductRepository nyProductRepository;
@@ -58,6 +60,14 @@ public class NyProductServiceImpl implements NyProductService {
                 // Product doesn't exist, create new one
                 product = convertToEntity(productDto);
                 product.setToken(token);
+                
+                // Auto-generate HSN if not provided
+                if (product.getHsn() == null || product.getHsn().isEmpty()) {
+                    String generatedHsn = generateUniqueHsn(productDto.getSku(), token);
+                    product.setHsn(generatedHsn);
+                    logger.info("Auto-generated HSN '{}' for product sku='{}'", generatedHsn, productDto.getSku());
+                }
+                
                 logger.info("Creating new product with sku='{}' and token='{}'", productDto.getSku(), token);
             }
             
@@ -229,6 +239,54 @@ public class NyProductServiceImpl implements NyProductService {
         product.setHeight(dto.getHeight());
         product.setSerialTracking(dto.getSerialTracking());
         product.setSellerId(dto.getSellerId());
-        product.setHsn(dto.getHsn());
+        // Only update HSN if provided, otherwise keep existing
+        if (dto.getHsn() != null && !dto.getHsn().isEmpty()) {
+            product.setHsn(dto.getHsn());
+        }
+    }
+    
+    /**
+     * Generate a unique HSN code for a product
+     * Format: 8-digit code based on SKU hash and sequential counter
+     * 
+     * @param sku Product SKU
+     * @param token Product token
+     * @return Unique 8-digit HSN code
+     */
+    private String generateUniqueHsn(String sku, String token) {
+        // Generate a unique HSN using SKU hash and counter
+        // This ensures uniqueness while maintaining a consistent format
+        
+        // Use SKU hash to create base number
+        int skuHash = (sku != null ? sku.hashCode() : 0) & 0x7FFFFFFF; // Ensure positive
+        int tokenHash = (token != null ? token.hashCode() : 0) & 0x7FFFFFFF;
+        
+        // Combine with counter for uniqueness
+        long counter = hsnCounter.incrementAndGet();
+        
+        // Create 8-digit HSN: (hash % 100000) * 100 + (counter % 100)
+        // This gives us a unique 8-digit number
+        long combined = ((skuHash + tokenHash) % 1000000L) * 100L + (counter % 100L);
+        
+        // Ensure it's 8 digits, pad with zeros if needed
+        String hsn = String.format("%08d", combined % 100000000L);
+        
+        // Verify uniqueness by checking if it exists
+        // If it exists, generate a new one (very rare case)
+        int attempts = 0;
+        while (attempts < 10) {
+            boolean exists = nyProductRepository.existsByHsn(hsn);
+            if (!exists) {
+                break;
+            }
+            // If exists, generate new one
+            counter = hsnCounter.incrementAndGet();
+            combined = ((skuHash + tokenHash + counter) % 1000000L) * 100L + (counter % 100L);
+            hsn = String.format("%08d", combined % 100000000L);
+            attempts++;
+        }
+        
+        logger.debug("Generated HSN '{}' for SKU '{}' (attempts: {})", hsn, sku, attempts);
+        return hsn;
     }
 }

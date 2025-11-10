@@ -51,4 +51,9 @@ public interface NyProductRepository extends JpaRepository<NyProduct, Long> {
             @Param("token") String token,
             @Param("status") String status,
             Pageable pageable);
+    
+    /**
+     * Check if HSN code already exists
+     */
+    boolean existsByHsn(String hsn);
 }
