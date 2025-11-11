@@ -35,7 +35,9 @@ public class NyProduct {
     @NotBlank(message = "SKU name is required")
     @Column(nullable = false)
     private String skuName;
-    
+
+    @NotBlank(message="Description is required")
+    @Column(nullable = false)
     private String description; // Product description
 
     @NotBlank(message = "MRP is required")

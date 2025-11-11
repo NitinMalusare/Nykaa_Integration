@@ -19,7 +19,7 @@ public class NyProductDto {
     @JsonProperty("mfgSkuCode")
     private String mfgSkuCode;
 
-    @NotBlank(message = "SKU name is required")
+ //   @NotBlank(message = "SKU name is required")
     @JsonProperty("skuName")
     private String skuName;
     
