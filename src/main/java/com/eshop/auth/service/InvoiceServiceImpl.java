@@ -1,6 +1,7 @@
 package com.eshop.auth.service;
 
 import com.eshop.auth.dto.InvoiceItemDTO;
+import com.eshop.auth.dto.InvoiceJsonDTO;
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.eshop.auth.dto.InvoiceResponseDTO;
 import com.eshop.auth.dto.NykaaInvoicePayload;
@@ -116,6 +117,54 @@ public class InvoiceServiceImpl implements InvoiceService {
             logger.error("Error generating invoice PDF for order: {}", request.getOrderNo(), e);
             throw new RuntimeException("Failed to generate invoice PDF: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public InvoiceJsonDTO generateInvoiceJson(InvoiceRequestDTO request) {
+        logger.info("Generating JSON invoice for order: {}", request.getOrderNo());
+        InvoiceJsonDTO jsonInvoice = new InvoiceJsonDTO();
+
+        // Invoice Info
+        InvoiceJsonDTO.InvoiceInfoDTO invoiceInfo = new InvoiceJsonDTO.InvoiceInfoDTO();
+        invoiceInfo.setInvoiceNo(generateInvoiceNumber());
+        invoiceInfo.setInvoiceDate(LocalDateTime.now().format(DATE_FORMATTER));
+        invoiceInfo.setOrderNo(request.getOrderNo());
+        invoiceInfo.setOrderDate(request.getOrderDate());
+        jsonInvoice.setInvoiceInfo(invoiceInfo);
+
+        // Seller Info
+        InvoiceJsonDTO.SellerInfoDTO sellerInfo = new InvoiceJsonDTO.SellerInfoDTO();
+        sellerInfo.setName(request.getSellerName());
+        sellerInfo.setAddress(request.getSellerAddress());
+        sellerInfo.setGstin(request.getSellerGstin());
+        jsonInvoice.setSellerDetails(sellerInfo);
+
+        // Buyer Info
+        InvoiceJsonDTO.BuyerInfoDTO buyerInfo = new InvoiceJsonDTO.BuyerInfoDTO();
+        buyerInfo.setName(request.getBuyerName());
+        buyerInfo.setShippingAddress(request.getBuyerAddress());
+        buyerInfo.setBillingAddress(request.getBuyerAddress()); // Assuming same for now
+        jsonInvoice.setBuyerDetails(buyerInfo);
+
+        // Order Items
+        jsonInvoice.setOrderItems(request.getOrderItemsList());
+
+        // Financial Summary
+        InvoiceJsonDTO.FinancialSummaryDTO summary = new InvoiceJsonDTO.FinancialSummaryDTO();
+        double totalAmount = 0;
+        double totalTax = 0;
+        for (InvoiceItemDTO item : request.getOrderItemsList()) {
+            double taxable = (item.getQty() * item.getUnitPrice()) - item.getDiscount();
+            double tax = taxable * item.getTaxRate() / 100.0;
+            totalAmount += taxable;
+            totalTax += tax;
+        }
+        summary.setTotalAmount(totalAmount);
+        summary.setTotalTax(totalTax);
+        summary.setNetPayable(totalAmount + totalTax);
+        jsonInvoice.setFinancialSummary(summary);
+
+        return jsonInvoice;
     }
 
     @Override
@@ -695,76 +744,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         Table totals = new Table(new float[]{200f, 120f}).setWidth(UnitValue.createPercentValue(40))
                 .setHorizontalAlignment(HorizontalAlignment.RIGHT);
         totals.addCell(cellNoBorder("Total Amount (+)", true));
-        totals.addCell(cellRightNoBorder("16.10", false));
-        totals.addCell(cellNoBorder("Total Tax (+)", true));
-        totals.addCell(cellRightNoBorder("2.90", false));
-        totals.addCell(cellNoBorder("Net Payable", true));
-        totals.addCell(cellRightNoBorder("19.00", true));
-        document.add(totals);
-    }
-
-    private void addNykaaFooter(Document document) {
-        document.add(spacer(10));
-        document.add(new Paragraph("DECLARATION 1: Tax is not payable on reverse charge basis.").setFontSize(9));
-        document.add(new Paragraph("CUSTOMER SELF DECLARATION: I, Hereby confirm that the content of this package are being purchased for my internal and personal purpose and not for resale.").setFontSize(9));
-        document.add(spacer(6));
-        document.add(new Paragraph("Authorised Signatory").setTextAlignment(TextAlignment.RIGHT));
-    }
-
-    // ---------------- Helpers ----------------
-    private void addKeyValue(Table table, String label, String value) {
-        table.addCell(new Cell().add(new Paragraph(defaultString(label, "-")).setBold())
-                .setBorder(Border.NO_BORDER)
-                .setTextAlignment(TextAlignment.LEFT));
-        table.addCell(new Cell().add(new Paragraph(defaultString(value, "-")))
-                .setBorder(Border.NO_BORDER)
-                .setTextAlignment(TextAlignment.LEFT));
-    }
-
-    private Cell headerCell(String text) {
-        return new Cell().add(new Paragraph(text).setBold()).setTextAlignment(TextAlignment.CENTER);
-    }
-
-    private Cell bodyCell(String text, TextAlignment align) {
-        return new Cell().add(new Paragraph(text == null ? "" : text)).setTextAlignment(align);
-    }
-
-    private Cell cellNoBorder(String text, boolean bold) {
-        Paragraph p = new Paragraph(text);
-        if (bold) p.setBold();
-        return new Cell().add(p).setBorder(Border.NO_BORDER);
-    }
-
-    private Cell cellRightNoBorder(String text, boolean bold) {
-        Paragraph p = new Paragraph(text).setTextAlignment(TextAlignment.RIGHT);
-        if (bold) p.setBold();
-        return new Cell().add(p).setBorder(Border.NO_BORDER);
-    }
-
-    private Paragraph spacer(float pts) {
-        return new Paragraph(" ").setMarginTop(pts).setMarginBottom(pts).setBorder(Border.NO_BORDER);
-    }
-
-    private boolean isIntraState(String placeOfSupply) {
-        if (placeOfSupply == null) return true;
-        return placeOfSupply.contains("(27)") || placeOfSupply.toLowerCase().contains("maharashtra");
-    }
-
-    private byte[] generateBarcodePng(String text) throws WriterException, IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        var matrix = new MultiFormatWriter().encode(text, BarcodeFormat.CODE_128, 280, 50);
-        MatrixToImageWriter.writeToStream(matrix, "png", baos);
-        return baos.toByteArray();
-    }
-
-    private byte[] generateQrPng(String text) throws WriterException, IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        var matrix = new MultiFormatWriter().encode(text, BarcodeFormat.QR_CODE, 200, 200);
-        MatrixToImageWriter.writeToStream(matrix, "png", baos);
-        return baos.toByteArray();
-    }
-
-    private String defaultString(String value, String fallback) {
+        totals.addCell(cellRightNoBorder("16.10",.
+        private String defaultString(String value, String fallback) {
         if (value == null || value.isBlank()) {
             return fallback == null ? "" : fallback;
         }
