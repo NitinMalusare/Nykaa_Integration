@@ -1,6 +1,8 @@
 package com.eshop.auth.controller;
 
 import com.eshop.auth.dto.*;
+import com.eshop.auth.dto.InvoiceRequestDTO;
+import com.eshop.auth.dto.InvoiceResponseDTO;
 import com.eshop.auth.service.InvoiceService;
 import com.eshop.auth.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,24 +27,8 @@ public class OrderController {
     @Autowired
     private InvoiceService invoiceService;
 
-    @PostMapping("/order/invoice/json")
-    @Operation(summary = "Generate invoice in JSON format",
-            description = "Generates a detailed invoice in JSON format based on the provided order data.")
-    public ResponseEntity<InvoiceJsonDTO> generateInvoiceJson(
-            @RequestHeader("apiKey") String apiKey,
-            @Valid @RequestBody InvoiceRequestDTO requestDTO) {
-        logger.info("JSON Invoice request received for order: {}", requestDTO.getOrderNo());
-        try {
-            InvoiceJsonDTO jsonInvoice = invoiceService.generateInvoiceJson(requestDTO);
-            return ResponseEntity.ok(jsonInvoice);
-        } catch (Exception e) {
-            logger.error("Error generating JSON invoice for order: {}", requestDTO.getOrderNo(), e);
-            return ResponseEntity.status(500).build();
-        }
-    }
-
     @PostMapping("/orderList")
-    @Operation(summary = "Fetch order list for Dropship sellers",
+    @Operation(summary = "Fetch order list for Dropship sellers", 
                description = "Fetches list of orders created after a specific date for Dropship sellers")
     public ResponseEntity<OrderListResponseDTO> getOrderList(
             @RequestHeader("apiKey") String apiKey,

@@ -1,6 +1,5 @@
 package com.eshop.auth.service;
 
-import com.eshop.auth.dto.InvoiceJsonDTO;
 import com.eshop.auth.dto.InvoiceRequestDTO;
 import com.eshop.auth.dto.InvoiceResponseDTO;
 import com.eshop.auth.dto.NykaaInvoicePayload;
@@ -42,14 +41,6 @@ public interface InvoiceService {
      * @return PDF bytes and invoice number
      */
     InvoicePdfResult generateInvoiceFromOrder(String orderNo, String token);
-
-    /**
-     * Generate invoice data in JSON format.
-     *
-     * @param request Invoice request DTO
-     * @return Invoice data as a JSON DTO
-     */
-    InvoiceJsonDTO generateInvoiceJson(InvoiceRequestDTO request);
     
     /**
      * Result class for PDF generation
@@ -78,3 +69,4 @@ public interface InvoiceService {
         }
     }
 }
+
